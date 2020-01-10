@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+
+    <title>Stash Web UI</title>
+    <link rel='shortcut icon' href='favicon.png' type='image/png' />
+
+    <!-- Custom styles for this template -->
+
+    <!-- Minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+    <!-- Optional Theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.8/themes/default/style.min.css" />
+    <!-- <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"> -->
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+    <!-- See here for Ajax spinner info: https://blog.oio.de/2010/11/08/how-to-create-a-loading-animation-spinner-using-jquery/ -->
+    <style>
+.ui-autocomplete-loading {
+    background: white url("https://jqueryui.com/resources/demos/autocomplete/images/ui-anim_basic_16x16.gif") right center no-repeat;
+}
+
+.ajax_spinner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    margin-left: -100px; /* half width of the spinner gif */
+    margin-top: -100px; /* half height of the spinner gif */
+    text-align:center;
+    z-index:1234;
+    overflow: auto;
+    width: 200px; /* width of the spinner gif */
+    height: 204px; /*hight of the spinner gif +2px to fix IE8 issue */
+}
+
+.modal-body {
+    word-wrap: break-word;
+}
+
+a.jstree-anchor {
+    cursor: context-menu;
+}
+    </style>
+
+    <div id="spinner" class="ajax_spinner" style="display:none;">
+      <img id="img-spinner" src="5.gif" alt="Loading"/>
+    </div>
+
+  </head>
+
+  <body>
+
+    <!-- See here for how to make it so top navbar doesn't cover up main body content:
+	 https://stackoverflow.com/questions/10336194/twitter-bootstrap-top-nav-bar-blocking-top-content-of-the-page -->
+    <!-- Fixed navbar -->
+    <nav class="navbar navbar-inverse navbar-static-top">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <span class="navbar-brand">Stash Web UI</span>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li><a href="index.html">Home</a></li>
+            <li><a id="ssconfig" href="javascript:void(0);">Config</a></li>
+            <li><a href="mailto:andrew.smith1@bms.com">Contact</a></li>
+            <li><a onclick="javascript:alert('Link to help here');" target=_blank>Help/Docs</a></li>
+          </ul>
+        </div><!--/.nav-collapse -->
+      </div>
+    </nav>
+
+    <span id="rootInfo"></span><p>
+    <div id="simple_stash_tree"></div>
+
+  <!-- Modals -->
+  <div class="modal fade" id="showEditEaclModal" role="dialog">
+    <div class="modal-dialog ui-front"><!-- See here: https://stackoverflow.com/questions/16133654/autocomplete-issue-into-bootstrap-modal -->    
+      <!-- Modal content-->
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+          <h4 class="modal-title">Access Control</h4>
+        </div>
+        <div class="modal-body">
+	   <label id="curEACL_label">Path: path/to/my/file</label><br>
+      	   <div class="after-add-more-show-edit-acl">
+	  </div>
+        </div>
+        <div class="modal-footer">
+	  <button class="btn btn-primary add-more-show-edit-acl pull-left" type="button"><i class="glyphicon glyphicon-plus"></i> Add ACL Entry</button>
+	  <button id="curEACL_button" type="submit" style="margin-left:12px" class="btn btn-success pull-left">Update</button>&nbsp;&nbsp;&nbsp;&nbsp;
+	  <span class="pull-left" style="margin-left:4px" data-toggle="tooltip" title="Check to have the path's sub-directories and files' access control also modified."><label class="checkbox checkbox-inline"><input type="checkbox" id="curEACL_recursive" value="1">Recursive?</label></span>
+          <button type="button" class="btn btn-default pull-right" data-dismiss="modal">Cancel</button>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <div class="modal fade" id="shareModal" role="dialog">
+    <div class="modal-dialog ui-front"><!-- See here: https://stackoverflow.com/questions/16133654/autocomplete-issue-into-bootstrap-modal -->    
+      <!-- Modal content-->
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+          <h4 class="modal-title">Share File or Directory</h4>
+        </div>
+        <div class="modal-body">
+	   <label id="share_label">Path: path/to/my/file</label><br><br>
+	   Enter users to share with:
+	   <input class="form-control" name="share_with_users" id="share_with_users" /><br>
+        </div>
+        <div class="modal-footer">
+	  <button id="share_button" type="submit" class="btn btn-success pull-left">Share</button>&nbsp;&nbsp;&nbsp;&nbsp;
+          <button type="button" class="btn btn-default pull-right" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <div class="modal fade" id="createDirModal" role="dialog">
+    <div class="modal-dialog ui-front">
+    
+      <!-- Modal content-->
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+          <h4 class="modal-title">Create Directory</h4>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+	    <label for="createDirPath" id="createDirPath_label">Directory Name</label>
+	    <textarea class="form-control" id="createDirPath" rows="1"></textarea><p>
+      	    <div class="after-add-more-create-dir">
+	     </div>
+	  </div>
+        </div>
+        <div class="modal-footer">
+	  <button class="btn btn-primary add-more-create-dir pull-left" type="button"><i class="glyphicon glyphicon-plus"></i> Add ACL Entry</button>
+	  <button id="createDir_button" type="submit" class="btn btn-success pull-left">Create</button>
+          <button type="button" class="btn btn-default pull-right" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <div class="modal fade" id="createControlledDirModal" role="dialog">
+    <div class="modal-dialog ui-front">
+    
+      <!-- Modal content-->
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+          <h4 class="modal-title">Create Controlled Directory</h4>
+	  Example of creating controlled directory from JIRA task. Please select a JIRA task below which will provide the name of the directory.
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+	    <label for="createControlledDirPath" id="createControlledDirPath_label">Jira Issue Key</label>
+	    <textarea class="form-control" id="createControlledDirPath" rows="1"></textarea><p>
+	  </div>
+        </div>
+        <div class="modal-footer">
+	  <button id="createControlledDir_button" type="submit" class="btn btn-success pull-left">Create</button>
+          <button type="button" class="btn btn-default pull-right" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <div class="modal fade" id="renameModal" role="dialog">
+    <div class="modal-dialog">
+    
+      <!-- Modal content-->
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+          <h4 class="modal-title">Rename</h4>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+	    <label for="newName" id="newName_label">New Name</label>
+	    <textarea class="form-control" id="newName" rows="1"></textarea>
+	  </div>
+        </div>
+        <div class="modal-footer">
+	  <button id="rename_button" type="submit" class="btn btn-success pull-left">Rename</button>
+          <button type="button" class="btn btn-default pull-right" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <div class="modal fade" id="stashFileModal" role="dialog">
+    <div class="modal-dialog ui-front">
+    
+      <!-- Modal content-->
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+          <h4 class="modal-title">Upload File</h4>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+	    <input type="file" class="form-control-file" id="stashFile"><br>
+      	    <div class="after-add-more-stash-file">
+	     </div>
+	  </div>
+        </div>
+        <div class="modal-footer">
+	  <button class="btn btn-primary add-more-stash-file pull-left" type="button"><i class="glyphicon glyphicon-plus"></i> Add ACL Entry</button>
+	  <button id="stashFile_button" type="submit" class="btn btn-success pull-left">Upload</button>
+          <button type="button" class="btn btn-default pull-right" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <div class="modal fade" id="downloadLinkModal" role="dialog">
+    <div class="modal-dialog">
+    
+      <!-- Modal content-->
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+          <h4 class="modal-title">File/Dir View or Download URL</h4>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+	    <label for="downloadLink" id="downloadLink_label">You may copy this URL and share with others, e.g. by pasting into an email:</label>
+	    <a id="downloadLink" href=""></a>
+	  </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <div class="modal fade" id="roothereLinkModal" role="dialog">
+    <div class="modal-dialog">
+    
+      <!-- Modal content-->
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+          <h4 class="modal-title">Root Here URL</h4>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+	    <label for="roothereLink" id="roothereLink_label">You may copy this URL and share with others, e.g. by pasting into an email:</label>
+	    <a id="roothereLink" href=""></a>
+	  </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+
+  <div class="modal fade" id="ssconfigModal" role="dialog">
+    <div class="modal-dialog">
+    
+      <!-- Modal content-->
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+          <h4 class="modal-title">Please provide your SSH private key and/or password below</h4>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+	    <label id="sshconfig_sshPrivKey_label">SSH Private Key:</label>
+	    <textarea class="form-control" id="ssconfig_sshPrivKey" rows="6"></textarea><br>
+	    <label id="sshconfig_password_label">Password:</label>
+	    <input type="password" class="form-control" id="ssconfig_password" /><br>
+	  </div>
+        </div>
+        <div class="modal-footer">
+	  <button id="ssconfig_Button" type="submit" class="btn btn-success pull-left">Update</button>
+	  <button id="ssconfig_ClearButton" type="submit" class="btn btn-danger pull-left">Clear</button>
+          <button type="button" class="btn btn-default pull-right" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <div class="modal fade" id="symlinkModal" role="dialog">
+    <div class="modal-dialog">
+    
+      <!-- Modal content-->
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+          <h4 class="modal-title">Create Symlink</h4>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+	    <label id="symlink_target_label" title="The file or directory to which you wish to link">Symlink Target:</label>
+	    <input type="text" class="form-control" id="symlink_target" disabled /><br>
+	    <label id="symlink_location_label" title="The directory in which the symlink will be created">Symlink Location:</label>
+	    <input type="text" class="form-control" id="symlink_location" disabled /><br>
+	    <label id="symlink_name_label" title="The name of the symlink you wish to create">Symlink Name:</label>
+	    <input type="text" class="form-control" id="symlink_name" /><br>
+	  </div>
+        </div>
+        <div class="modal-footer">
+	  <button id="symlink_create_Button" type="submit" class="btn btn-success pull-left">Create</button>
+	  <button id="symlink_select_location_Button" type="submit" class="btn btn-success pull-left">Select Location</button>
+	  <button id="symlink_cancel_Button" type="submit" class="btn btn-default pull-right">Cancel</button>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
+
+    <!-- Minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.8/jstree.min.js"></script>
+
+
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-tagsinput/1.3.6/jquery.tagsinput.min.css" />
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery-tagsinput/1.3.6/jquery.tagsinput.min.js"></script>
+
+    <script src="config.js"></script>
+    <script src="stash_ui.js"></script>
+    <script src="eacl_edit.js"></script>
+  </body>
+</html>
